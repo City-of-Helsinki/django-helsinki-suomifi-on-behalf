@@ -1,0 +1,135 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "django-helsinki-suomifi-on-behalf"
+version = "0.1.0"
+authors = [{ name = "City of Helsinki", email = "dev@hel.fi" }]
+description = "Suomi.fi on-behalf integration helpers for City of Helsinki Django apps"
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = [
+    "django",
+]
+classifiers = [
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Internet :: WWW/HTTP",
+]
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = ["requests>=2.32.5", "django>=5.2"]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-django",
+    "coverage-enable-subprocess",
+    "coverage[toml]",
+    "pytest-mock",
+    "pytest-randomly",
+    "pytest-rerunfailures",
+    "pytest-xdist[psutil]",
+]
+all = ["django-helsinki-suomifi-on-behalf[test]"]
+
+[project.urls]
+Homepage = "https://github.com/City-of-Helsinki/django-helsinki-suomifi-on-behalf"
+Issues = "https://github.com/City-of-Helsinki/django-helsinki-suomifi-on-behalf/issues"
+
+[tool.coverage.run]
+source = ["suomifi_on_behalf"]
+omit = ["**/migrations/*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["suomifi_on_behalf"]
+
+[tool.hatch.envs.default]
+dependencies = [
+    "django~=5.2",
+    "pre-commit",
+]
+features = ["all"]
+python = "3.10"
+
+[tool.hatch.envs.default.scripts]
+test = "pytest {args}"
+lint = [
+    "pre-commit install",
+    "pre-commit run -a",
+]
+manage = "tests/manage.py {args}"
+
+[tool.hatch.envs.hatch-test]
+default-args = ["tests"]
+features = ["all"]
+matrix-name-format = "dj{value}"
+parallel = false
+randomize = true
+
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.10", "3.11", "3.12", "3.13", "3.14"]
+django = ["5.2"]
+
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.12", "3.13", "3.14"]
+django = ["6.0"]
+
+[tool.hatch.envs.hatch-test.overrides]
+matrix.django.dependencies = [
+    { value = "django~={matrix:django}" },
+]
+
+[tool.hatch.envs.hatch-test.scripts]
+run = [
+    "./tests/manage.py makemigrations --check",
+    "pytest{env:HATCH_TEST_ARGS:} {args}",
+]
+run-cov = "coverage run -m pytest{env:HATCH_TEST_ARGS:} {args}"
+cov-combine = "coverage combine"
+cov-report = "coverage report"
+
+[tool.hatch.envs.hatch-uv]
+dependencies = [
+  "uv>=0.11.1",
+]
+
+[tool.pytest.ini_options]
+django_find_project = false
+testpaths = [
+    "tests",
+]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+pythonpath = "."
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "F",
+    "E",
+    "W",
+    "I",
+    "N",
+    "B0",
+    "PIE",
+    "T20",
+]
+
+[tool.uv]
+exclude-newer = "14 days"

@@ -1,0 +1,35 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Unit test / coverage reports
+.coverage
+.coverage.*
+.pytest_cache/
+.cache
+htmlcov/
+
+# Django stuff:
+*.log
+db.sqlite3
+db.sqlite3-journal
+
+# Environments
+.env
+.venv
+env/
+venv/
+
+# Tool caches
+.ruff_cache/
+.mypy_cache/
+
+# Editor
+.vscode/
