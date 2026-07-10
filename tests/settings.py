@@ -54,3 +54,24 @@ USE_TZ = True
 STATIC_URL = "static/"
 LANGUAGE_CODE = "en"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+]
+
+# Suomi.fi eAuthorizations (Valtuudet) settings. Most are overridden per-test.
+SUOMIFI_ON_BEHALF_SSN_RESOLVERS = [
+    "suomifi_on_behalf.ssn.OidcUserinfoSsnResolver",
+    "suomifi_on_behalf.ssn.HelsinkiProfileSsnResolver",
+]
+SUOMIFI_ON_BEHALF_EAUTHORIZATIONS_BASE_URL = "http://example.test"
+SUOMIFI_ON_BEHALF_EAUTHORIZATIONS_CLIENT_ID = "test"
+SUOMIFI_ON_BEHALF_EAUTHORIZATIONS_CLIENT_SECRET = "test"
+SUOMIFI_ON_BEHALF_EAUTHORIZATIONS_API_OAUTH_SECRET = "test"
+
+LOGIN_REDIRECT_URL = "http://example.test/success"
+SUOMIFI_ON_BEHALF_LOGIN_ERROR_URL = "http://example.test/failure"
+
+SUOMIFI_ON_BEHALF_OIDC_USERINFO_ENDPOINT = "http://example.test/userinfo"
+SUOMIFI_ON_BEHALF_REDIRECT_ALLOWED_HOSTS = ["example.test"]
+SUOMIFI_ON_BEHALF_REDIRECT_REQUIRE_HTTPS = False
