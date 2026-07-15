@@ -21,6 +21,7 @@ The package depends on `django` and `requests`.
 | --- | --- |
 | `suomifi_on_behalf.views` | eAuthorizations request/callback views |
 | `suomifi_on_behalf.ssn` | Pluggable SSN (hetu) resolvers |
+| `suomifi_on_behalf.company` | Pluggable company data resolvers |
 | `suomifi_on_behalf.client` | Checksum and Valtuudet / OIDC userinfo HTTP calls |
 | `suomifi_on_behalf.sessions` | Session token storage and redirect helpers |
 | `suomifi_on_behalf.signals` | `suomifi_mandate_queried` / `suomifi_mandate_query_failed` |
@@ -75,6 +76,54 @@ def my_ssn_resolver(request):
 SUOMIFI_ON_BEHALF_SSN_RESOLVERS = ["myapp.auth.my_ssn_resolver"]
 ```
 
+## Company data resolution
+
+After a successful eAuthorizations login the mandate ("organization roles") stored in
+the session carries the acting company's business id (`identifier`) and name. Turning
+that into fuller company data is pluggable via the
+`SUOMIFI_ON_BEHALF_COMPANY_RESOLVERS` setting, a list of resolvers tried in order until
+one succeeds:
+
+```python
+SUOMIFI_ON_BEHALF_COMPANY_RESOLVERS = [
+    "suomifi_on_behalf.company.YtjCompanyResolver",
+    "suomifi_on_behalf.company.OrganizationRolesCompanyResolver",
+]
+```
+
+Each entry is a dotted path to a callable `(request) -> dict` (or to a class that is
+instantiated with no arguments and is itself callable). A resolver returns a company
+dict or raises `suomifi_on_behalf.company.CompanyResolutionError`; when every resolver
+raises, `get_company` re-raises `CompanyResolutionError`.
+
+Built-in resolvers:
+
+1. **`YtjCompanyResolver`**: looks the company up in the YTJ (avoindata PRH v3) open
+   data API by business id and returns the preferred (Finnish, then Swedish) name,
+   company form, industry and address. Requires `SUOMIFI_ON_BEHALF_YTJ_BASE_URL`.
+2. **`OrganizationRolesCompanyResolver`**: performs no external call and returns only
+   the `name` and `business_id` carried by the mandate. Intended as the terminal
+   fallback in a chain.
+
+Use `get_company(request)` to run the configured chain. It returns the cached `company`
+dict from the session when present, otherwise resolves it once (ensuring the mandate is
+available first), caches it in `request.session["company"]`, and emits
+`suomifi_company_resolved`:
+
+```python
+from suomifi_on_behalf import get_company
+
+company = get_company(request)
+# {"name": ..., "business_id": ..., "company_form": ..., "industry": ...,
+#  "street_address": ..., "postcode": ..., "city": ...}
+```
+
+This library only returns the data. Persisting a `Company` record (and its schema) is
+left entirely to the consuming application.
+
+For a full worked example (persisting to your own model, a DRF view, a custom resolver,
+audit signals and tests), see [docs/company-data.md](docs/company-data.md).
+
 ## URL configuration
 
 Wire the eAuthorizations views (they provide the `eauth_authentication_init` and
@@ -125,6 +174,19 @@ SUOMIFI_ON_BEHALF_HELSINKI_PROFILE_SCOPE = "https://api.hel.fi/auth/helsinkiprof
 SUOMIFI_ON_BEHALF_TUNNISTUS_API_TOKENS_ENDPOINT = "https://tunnistus.example.test/api-tokens/"
 ```
 
+### Company data (YTJ)
+
+Used by `YtjCompanyResolver`:
+
+```python
+SUOMIFI_ON_BEHALF_COMPANY_RESOLVERS = [
+    "suomifi_on_behalf.company.YtjCompanyResolver",
+    "suomifi_on_behalf.company.OrganizationRolesCompanyResolver",
+]
+SUOMIFI_ON_BEHALF_YTJ_BASE_URL = "https://avoindata.prh.fi/opendata-ytj-api/v3"
+SUOMIFI_ON_BEHALF_YTJ_TIMEOUT = 30  # seconds (default)
+```
+
 ## Signals
 
 Connect to the mandate query signals for audit logging:
@@ -139,6 +201,18 @@ from suomifi_on_behalf.signals import (
 `suomifi_mandate_queried` is sent with `request`, `request_id` and
 `organization_roles`; `suomifi_mandate_query_failed` is sent with `request`,
 `request_id` and `error`.
+
+The company resolution signals are:
+
+```python
+from suomifi_on_behalf.signals import (
+    suomifi_company_resolved,
+    suomifi_company_resolution_failed,
+)
+```
+
+`suomifi_company_resolved` is sent with `request` and `company`;
+`suomifi_company_resolution_failed` is sent with `request` and `error`.
 
 ## Development
 

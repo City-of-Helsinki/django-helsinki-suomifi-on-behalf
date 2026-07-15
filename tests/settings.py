@@ -75,3 +75,9 @@ SUOMIFI_ON_BEHALF_LOGIN_ERROR_URL = "http://example.test/failure"
 SUOMIFI_ON_BEHALF_OIDC_USERINFO_ENDPOINT = "http://example.test/userinfo"
 SUOMIFI_ON_BEHALF_REDIRECT_ALLOWED_HOSTS = ["example.test"]
 SUOMIFI_ON_BEHALF_REDIRECT_REQUIRE_HTTPS = False
+
+SUOMIFI_ON_BEHALF_COMPANY_RESOLVERS = [
+    "suomifi_on_behalf.company.YtjCompanyResolver",
+    "suomifi_on_behalf.company.OrganizationRolesCompanyResolver",
+]
+SUOMIFI_ON_BEHALF_YTJ_BASE_URL = "http://example.test/ytj/v3"

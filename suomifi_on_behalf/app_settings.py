@@ -13,6 +13,11 @@ if TYPE_CHECKING:
     # SSN (hetu) resolution
     SSN_RESOLVERS: list | None
 
+    # Company data resolution
+    COMPANY_RESOLVERS: list | None
+    YTJ_BASE_URL: str
+    YTJ_TIMEOUT: float
+
     # Redirects
     LOGIN_ERROR_URL: str
     REDIRECT_ALLOWED_HOSTS: list
@@ -68,6 +73,20 @@ class SuomiFiOnBehalfSettings:
     @property
     def SSN_RESOLVERS(self) -> list | None:
         return self._setting("SSN_RESOLVERS", None)
+
+    # Company data resolution
+
+    @property
+    def COMPANY_RESOLVERS(self) -> list | None:
+        return self._setting("COMPANY_RESOLVERS", None)
+
+    @property
+    def YTJ_BASE_URL(self) -> str:
+        return self._setting("YTJ_BASE_URL", "")
+
+    @property
+    def YTJ_TIMEOUT(self) -> float:
+        return self._setting("YTJ_TIMEOUT", 30)
 
     # Redirects
 
