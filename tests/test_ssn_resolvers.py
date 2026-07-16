@@ -1,6 +1,7 @@
 from unittest import mock
 
 import pytest
+import requests
 from django.core.exceptions import ImproperlyConfigured
 from django.test import override_settings
 
@@ -58,6 +59,15 @@ class TestOidcUserinfoSsnResolver:
             side_effect=SignedUserinfoNotSupportedError("signed"),
         ):
             with pytest.raises(SsnResolutionError, match="signed"):
+                OidcUserinfoSsnResolver()(request)
+
+    def test_wraps_userinfo_request_error(self):
+        request = FakeRequest(session={"oidc_access_token": "t"})
+        with mock.patch(
+            "suomifi_on_behalf.ssn.get_userinfo",
+            side_effect=requests.exceptions.HTTPError("500 Server Error"),
+        ):
+            with pytest.raises(SsnResolutionError, match="500 Server Error"):
                 OidcUserinfoSsnResolver()(request)
 
 
