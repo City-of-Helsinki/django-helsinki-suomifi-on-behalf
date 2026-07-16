@@ -1,5 +1,6 @@
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.module_loading import import_string
+from requests.exceptions import RequestException
 
 from suomifi_on_behalf import app_settings
 from suomifi_on_behalf.client import SignedUserinfoNotSupportedError, get_userinfo
@@ -32,7 +33,7 @@ class OidcUserinfoSsnResolver:
             raise SsnResolutionError("Missing oidc_access_token in session")
         try:
             userinfo = get_userinfo(request)
-        except SignedUserinfoNotSupportedError as e:
+        except (SignedUserinfoNotSupportedError, RequestException) as e:
             raise SsnResolutionError(str(e)) from e
         ssn = userinfo.get(self.claim)
         if not ssn:
