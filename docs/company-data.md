@@ -355,7 +355,11 @@ mandate.
   `request.session["company"]` and every later call returns that cached dict; it never
   refreshes on its own. Force a re-resolve by clearing it:
   `request.session.pop("company", None)`. Be aware the cached data can go stale
-  relative to YTJ.
+  relative to YTJ. If your application is the source of truth for company data (for
+  example you persist it in your own model and refresh it each request), disable the
+  cache instead of clearing it: pass `get_company(request, use_cache=False)` per call,
+  or set `SUOMIFI_ON_BEHALF_CACHE_COMPANY_IN_SESSION = False` globally. With caching off
+  the session key is never read or written, and the resolver runs on every call.
 - **Silent degradation.** If YTJ is down or returns nothing, the chain falls back to
   `OrganizationRolesCompanyResolver`, so you get a *successful* (but reduced) result
   with only `name` and `business_id`. If that distinction matters, watch the

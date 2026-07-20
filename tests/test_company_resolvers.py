@@ -344,3 +344,93 @@ class TestGetCompany:
         # organization_roles present, every resolver fails with no network calls.
         with pytest.raises(CompanyResolutionError):
             get_company(session_request)
+
+    @pytest.mark.django_db
+    def test_use_cache_false_bypasses_read_and_write_and_signals(
+        self, session_request, requests_mock
+    ):
+        # A stale cached value must be ignored, the resolver must run, and the session
+        # must not be written when caching is bypassed for the call.
+        session_request.session["company"] = {"business_id": "stale"}
+        session_request.session["organization_roles"] = ORG_ROLES
+        matcher = re.compile(re.escape(app_settings.YTJ_BASE_URL))
+        requests_mock.get(matcher, json={"companies": [DUMMY_YTJ_COMPANY]})
+
+        received = []
+
+        def handler(sender, **kwargs):
+            received.append(kwargs)
+
+        suomifi_company_resolved.connect(handler)
+        try:
+            company = get_company(session_request, use_cache=False)
+        finally:
+            suomifi_company_resolved.disconnect(handler)
+
+        assert company["business_id"] == "0877830-0"
+        assert session_request.session["company"] == {"business_id": "stale"}
+        assert received and received[0]["company"] == company
+
+    @pytest.mark.django_db
+    @override_settings(SUOMIFI_ON_BEHALF_CACHE_COMPANY_IN_SESSION=False)
+    def test_setting_disables_cache_for_default_calls(
+        self, session_request, requests_mock
+    ):
+        session_request.session["organization_roles"] = ORG_ROLES
+        matcher = re.compile(re.escape(app_settings.YTJ_BASE_URL))
+        requests_mock.get(matcher, json={"companies": [DUMMY_YTJ_COMPANY]})
+
+        received = []
+
+        def handler(sender, **kwargs):
+            received.append(kwargs)
+
+        suomifi_company_resolved.connect(handler)
+        try:
+            company = get_company(session_request)
+        finally:
+            suomifi_company_resolved.disconnect(handler)
+
+        assert company["business_id"] == "0877830-0"
+        assert "company" not in session_request.session
+        assert received and received[0]["company"] == company
+
+    @pytest.mark.django_db
+    @override_settings(SUOMIFI_ON_BEHALF_CACHE_COMPANY_IN_SESSION=False)
+    def test_explicit_use_cache_true_overrides_disabled_setting(
+        self, session_request, requests_mock
+    ):
+        session_request.session["organization_roles"] = ORG_ROLES
+        matcher = re.compile(re.escape(app_settings.YTJ_BASE_URL))
+        requests_mock.get(matcher, json={"companies": [DUMMY_YTJ_COMPANY]})
+
+        company = get_company(session_request, use_cache=True)
+
+        assert session_request.session["company"] == company
+
+    @pytest.mark.django_db
+    @override_settings(
+        SUOMIFI_ON_BEHALF_COMPANY_RESOLVERS=[
+            "suomifi_on_behalf.company.YtjCompanyResolver"
+        ]
+    )
+    def test_failure_signal_fires_with_cache_bypassed(
+        self, session_request, requests_mock
+    ):
+        session_request.session["organization_roles"] = ORG_ROLES
+        matcher = re.compile(re.escape(app_settings.YTJ_BASE_URL))
+        requests_mock.get(matcher, text="Error", status_code=500)
+
+        received = []
+
+        def handler(sender, **kwargs):
+            received.append(kwargs)
+
+        suomifi_company_resolution_failed.connect(handler)
+        try:
+            with pytest.raises(CompanyResolutionError):
+                get_company(session_request, use_cache=False)
+        finally:
+            suomifi_company_resolution_failed.disconnect(handler)
+
+        assert received and "error" in received[0]

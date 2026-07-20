@@ -12,6 +12,7 @@ def test_defaults_when_unset():
     assert app_settings.HELSINKI_PROFILE_AUDIENCE == ""
     assert app_settings.HELSINKI_PROFILE_SCOPE == ""
     assert app_settings.TUNNISTUS_API_TOKENS_ENDPOINT == ""
+    assert app_settings.CACHE_COMPANY_IN_SESSION is True
 
 
 @override_settings(

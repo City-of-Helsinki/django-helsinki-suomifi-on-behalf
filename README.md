@@ -136,6 +136,7 @@ are read through `suomifi_on_behalf.app_settings`. Standard Django settings
 | `SUOMIFI_ON_BEHALF_COMPANY_RESOLVERS` | company data | `None` | Ordered list of dotted paths to company resolvers, tried until one succeeds. |
 | `SUOMIFI_ON_BEHALF_YTJ_BASE_URL` | `YtjCompanyResolver` | `""` | YTJ (avoindata PRH v3) base URL. |
 | `SUOMIFI_ON_BEHALF_YTJ_TIMEOUT` | `YtjCompanyResolver` | `30` | YTJ request timeout in seconds. |
+| `SUOMIFI_ON_BEHALF_CACHE_COMPANY_IN_SESSION` | company data | `True` | Whether `get_company` caches the resolved company in `request.session["company"]`. Set `False` when your app is the source of truth for company data and re-resolves each request; the session is then never read or written. |
 
 `CLIENT_ID`, `CLIENT_SECRET` and `API_OAUTH_SECRET` are issued during Suomi.fi Valtuudet
 onboarding. The checksum and token flows are described in the Suomi.fi documentation
@@ -227,6 +228,14 @@ company = get_company(request)
 # {"name": ..., "business_id": ..., "company_form": ..., "industry": ...,
 #  "street_address": ..., "postcode": ..., "city": ...}
 ```
+
+Pass `get_company(request, use_cache=False)` to skip the session entirely - the resolver
+runs and nothing is read from or written to `request.session["company"]`. Omitting the
+argument follows the `SUOMIFI_ON_BEHALF_CACHE_COMPANY_IN_SESSION` setting (default
+`True`); an explicit `use_cache` overrides it. Disable caching when your application is
+the source of truth for company data and re-resolves on each request. The
+`suomifi_company_resolved` / `suomifi_company_resolution_failed` signals fire whenever the
+resolver runs regardless of caching; a cache hit emits nothing.
 
 This library only returns the data. Persisting a `Company` record (and its schema) is
 left entirely to the consuming application.
