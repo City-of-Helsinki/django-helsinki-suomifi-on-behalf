@@ -2,7 +2,8 @@
 
 This is a task-oriented walkthrough of using the company resolvers in a real
 application. For the reference (settings, the built-in resolvers, the returned dict
-shape), see the "Company data resolution" section of the [README](../README.md).
+shape), see the [Company data resolvers](../README.md#company-data-resolvers) and
+[Public API](../README.md#public-api) sections of the README.
 
 The examples use Django REST Framework on the consumer side, since that is what most
 City of Helsinki services use. The library itself only depends on `django` and
@@ -35,6 +36,10 @@ sequenceDiagram
     App-->>User: company JSON
 ```
 
+The diagram shows the happy path. When YTJ is unavailable or returns nothing, the chain
+falls back to the plain mandate data (name plus business id), which still resolves
+successfully but with fewer fields (see [Gotchas](#gotchas)).
+
 ## 1. Configure the resolver chain
 
 Try YTJ first, and fall back to the plain mandate data (name plus business id) when
@@ -46,13 +51,16 @@ SUOMIFI_ON_BEHALF_COMPANY_RESOLVERS = [
     "suomifi_on_behalf.company.YtjCompanyResolver",
     "suomifi_on_behalf.company.OrganizationRolesCompanyResolver",
 ]
-SUOMIFI_ON_BEHALF_YTJ_BASE_URL = "https://avoindata.prh.fi/opendata-ytj-api/v3"
 ```
+
+`YtjCompanyResolver` also needs `SUOMIFI_ON_BEHALF_YTJ_BASE_URL`; see the
+[Settings reference](../README.md#settings).
 
 ## 2. Turn the resolved data into your own Company
 
-The library returns a dict; persisting it is your app's job. A minimal model and a
-small service function are all you need:
+The library returns a dict; persisting and exposing it is your app's job. The pieces
+specific to this walkthrough are a model, a small service function to upsert it, and a
+serializer:
 
 ```python
 # employerportal/models.py
@@ -90,6 +98,30 @@ def get_or_create_company(data: dict) -> Company:
     )
     return company
 ```
+
+```python
+# employerportal/serializers.py
+from rest_framework import serializers
+
+from .models import Company
+
+
+class CompanySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Company
+        fields = [
+            "business_id",
+            "name",
+            "company_form",
+            "industry",
+            "street_address",
+            "postcode",
+            "city",
+        ]
+```
+
+You also need to register `CurrentCompanyView` (below) in your URLconf at `/api/company/`
+and run migrations for the model.
 
 ## 3. Use it in a view
 
@@ -186,11 +218,34 @@ SUOMIFI_ON_BEHALF_COMPANY_RESOLVERS = [
 ]
 ```
 
+`get_company` does not validate or enforce a schema: it passes through whatever dict your
+resolver returns. The example above mirrors the built-in YTJ keys, but you are free to
+return a **superset**. For instance, a Service Bus resolver can add integer/code fields
+that your `Company` model persists:
+
+```python
+return {
+    "name": company["name"],
+    "business_id": business_id,
+    "company_form": company.get("companyForm", ""),
+    "company_form_code": company.get("companyFormCode"),  # extra: int legal-form code
+    "industry": company.get("industry", ""),
+    "industry_code": company.get("industryCode"),          # extra: TOL code string
+    "street_address": company.get("streetAddress", ""),
+    "postcode": company.get("postCode", ""),
+    "city": company.get("city", ""),
+}
+```
+
+When chaining resolvers, have them agree on a superset of keys so callers see a stable
+shape no matter which resolver produced the result.
+
 ## 5. Audit logging with signals
 
 `get_company` emits `suomifi_company_resolved` on success and
-`suomifi_company_resolution_failed` on failure. Connect receivers (from your app
-config's `ready()`) to record an audit trail:
+`suomifi_company_resolution_failed` on failure (payloads in the
+[Signals reference](../README.md#signals)). Connect receivers (from your app config's
+`ready()`) to record an audit trail:
 
 ```python
 # employerportal/signals.py
@@ -218,6 +273,11 @@ def on_company_resolution_failed(sender, request, error, **kwargs):
 
 Because a YTJ outage falls back silently (see Gotchas), these signals are the reliable
 place to notice when resolution degrades or fails.
+
+Connect your receivers to the `suomifi_on_behalf.signals` objects specifically. These are
+distinct `Signal` instances, not the same objects as any similarly named signals already
+in your project (for example if you migrated incrementally from a copy-pasted version of
+this code). A receiver wired to a different signal object silently receives nothing.
 
 ## 6. Testing your integration
 
