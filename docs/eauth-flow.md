@@ -2,7 +2,9 @@
 
 This is a task-oriented walkthrough of wiring up the Suomi.fi eAuthorizations
 ("Valtuudet") on-behalf flow and plugging in SSN (hetu) resolution. For the reference
-(every setting, the built-in resolvers, the signal payloads), see the README.
+(every setting, the built-in resolvers, the signal payloads), see the
+[Settings](../README.md#settings), [SSN (hetu) resolvers](../README.md#ssn-hetu-resolvers)
+and [Signals](../README.md#signals) sections of the README.
 
 This is the primary flow of the library; once it completes you have the user's mandate
 in the session and can fetch company data (see [company-data.md](company-data.md)).
@@ -37,13 +39,14 @@ sequenceDiagram
 
 ## Prerequisite: an OIDC-authenticated session
 
-This library does **not** log the user in. It builds on top of an existing OIDC login
-that your app provides (this package deliberately ships no OIDC or SAML backend - bring
-your own, for example `mozilla-django-oidc`). The only thing the flow needs from that
-login is one session key:
+This library builds on an existing OIDC login that your app provides; see
+[Concepts](../README.md#concepts) for the background. With the built-in SSN resolvers,
+the flow needs just one session key from that login:
 
 - `request.session["oidc_access_token"]` - read by the built-in SSN resolvers to obtain
   the hetu.
+
+A custom SSN resolver may read a different key instead (see section 4).
 
 Everything else is created by the flow itself: `register_user` stores `eauth_id_token`,
 the callback's token exchange stores `eauth_access_token`, and the mandate query stores
@@ -66,17 +69,18 @@ This provides two named routes:
 - `eauth_authentication_init` (`eauthorizations/authenticate/`) - start the flow.
 - `eauth_authentication_callback` (`eauthorizations/callback/`) - Suomi.fi returns here.
 
-Send an authenticated user to `eauth_authentication_init` to begin. Register the
-callback URL with Suomi.fi as the redirect URI (it is always sent as `https://`).
+Send an authenticated user to `eauth_authentication_init` to begin, and register the
+callback URL with Suomi.fi as the redirect URI (always sent as `https://`). See
+[Quickstart](../README.md#quickstart).
 
 ## 2. Configure the eAuthorizations client and SSN resolution
 
+Set the eAuthorizations client credentials (see the
+[Settings reference](../README.md#settings) for the full list), then configure the SSN
+resolver chain:
+
 ```python
 # settings.py
-SUOMIFI_ON_BEHALF_EAUTHORIZATIONS_BASE_URL = "https://asiointivaltuustarkistus.suomi.fi"
-SUOMIFI_ON_BEHALF_EAUTHORIZATIONS_CLIENT_ID = "..."
-SUOMIFI_ON_BEHALF_EAUTHORIZATIONS_CLIENT_SECRET = "..."
-SUOMIFI_ON_BEHALF_EAUTHORIZATIONS_API_OAUTH_SECRET = "..."
 
 # Try the OIDC userinfo claim first, fall back to Helsinki Profile.
 SUOMIFI_ON_BEHALF_SSN_RESOLVERS = [
@@ -118,11 +122,10 @@ On success the flow pops `eauth_next_url` and uses it **only if** it passes
 `is_safe_redirect_url` (checked against `REDIRECT_ALLOWED_HOSTS` /
 `REDIRECT_REQUIRE_HTTPS`); otherwise it falls back to `LOGIN_REDIRECT_URL`.
 
-**Language segment.** If a `LANGUAGE_COOKIE_NAME` cookie is set, the final success URL
-gets the language appended as a path segment: `.../dashboard` becomes
-`.../dashboard/fi/` for a `fi` cookie (with no cookie the URL is unchanged). The failure
-redirect similarly inserts the language into the error URL path. Build your frontend
-routes to expect this.
+The redirect settings and the language-segment behavior (a `LANGUAGE_COOKIE_NAME` cookie
+is appended to the final URL as a path segment) are documented in the
+[Settings reference](../README.md#settings). Build your frontend routes to expect the
+language segment.
 
 ## 4. Write a custom SSN resolver
 
@@ -173,7 +176,8 @@ SUOMIFI_ON_BEHALF_SSN_RESOLVERS = [
 ## 5. Audit logging with signals
 
 The mandate query emits `suomifi_mandate_queried` on success and
-`suomifi_mandate_query_failed` on failure. Both carry a `request_id` (the UUID sent to
+`suomifi_mandate_query_failed` on failure (payloads in the
+[Signals reference](../README.md#signals)). Both carry a `request_id` (the UUID sent to
 Suomi.fi), which is invaluable for tracing against Suomi.fi's logs:
 
 ```python
@@ -206,25 +210,18 @@ def on_mandate_query_failed(sender, request, request_id, error, **kwargs):
 
 Connect these from your app config's `ready()`.
 
+Wire your receivers to the `suomifi_on_behalf.signals` objects specifically. These are
+distinct `Signal` instances, not the same objects as any similarly named signals already
+in your project (for example if you migrated incrementally from a copy-pasted version of
+this code). A receiver connected to a different signal object silently receives nothing.
+
 ## 6. What you get afterwards
 
-Once the callback has completed, the mandate is in the session. Read the raw roles with:
-
-```python
-from suomifi_on_behalf import get_organization_roles
-
-roles = get_organization_roles(request)
-# {"name": ..., "identifier": <business id>, "roles": [...], ...}
-```
-
-`get_organization_roles` returns the cached roles or performs the HTTP query on a miss,
-letting `requests` exceptions (`RequestException` / `HTTPError`) propagate. It does not
-redirect on failure - that handling lives only in the callback view - so wrap the call
-if you use it from your own views. Note that only the first organization role is stored
-and it is not filtered by mandate type; see the README "Organization roles" section.
-
-To turn that into company data, use `get_company(request)` - see
-[company-data.md](company-data.md).
+Once the callback has completed, the mandate is in the session. Read it with
+`get_organization_roles(request)`, and turn it into company data with
+`get_company(request)` (see [company-data.md](company-data.md)). Both helpers - including
+their failure behavior and the single-organization-role caveat - are described in the
+[Public API reference](../README.md#public-api).
 
 ## 7. Testing your integration
 
