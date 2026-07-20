@@ -207,7 +207,7 @@ def get_company_resolver():
     return resolvers[0] if len(resolvers) == 1 else ChainCompanyResolver(resolvers)
 
 
-def get_company(request) -> dict:
+def get_company(request, *, use_cache: bool | None = None) -> dict:
     """
     Return the authenticated user's company data as a dict.
 
@@ -217,6 +217,14 @@ def get_company(request) -> dict:
     failure it emits `suomifi_company_resolution_failed` and raises
     `CompanyResolutionError`.
 
+    Session caching can be disabled when your application is the source of truth for
+    company data and re-resolves on each request. When caching is off, the session is
+    never read or written: the resolver chain runs on every call. ``use_cache``
+    controls this per call; when left as ``None`` it follows the project-wide
+    `SUOMIFI_ON_BEHALF_CACHE_COMPANY_IN_SESSION` setting (default ``True``). An explicit
+    ``True`` or ``False`` overrides the setting. The signals fire whenever the resolver
+    runs, regardless of caching; a cache hit emits nothing.
+
     The mandate ("organization roles") must already be in the session; the
     eAuthorizations callback stores it. This function does not fetch it.
 
@@ -224,11 +232,17 @@ def get_company(request) -> dict:
     consuming application.
 
     :param request: The HttpRequest containing the current session.
+    :param use_cache: Whether to read and write ``request.session["company"]``. ``None``
+        (the default) follows `SUOMIFI_ON_BEHALF_CACHE_COMPANY_IN_SESSION`.
     :return: The user's company data.
     """
-    company = request.session.get("company")
-    if company:
-        return company
+    if use_cache is None:
+        use_cache = app_settings.CACHE_COMPANY_IN_SESSION
+
+    if use_cache:
+        company = request.session.get("company")
+        if company:
+            return company
 
     resolver = get_company_resolver()
     try:
@@ -239,6 +253,7 @@ def get_company(request) -> dict:
         )
         raise
 
-    request.session["company"] = company
+    if use_cache:
+        request.session["company"] = company
     suomifi_company_resolved.send(sender=get_company, request=request, company=company)
     return company

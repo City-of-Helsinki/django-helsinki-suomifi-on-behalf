@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     COMPANY_RESOLVERS: list | None
     YTJ_BASE_URL: str
     YTJ_TIMEOUT: float
+    CACHE_COMPANY_IN_SESSION: bool
 
     # Redirects
     LOGIN_ERROR_URL: str
@@ -87,6 +88,10 @@ class SuomiFiOnBehalfSettings:
     @property
     def YTJ_TIMEOUT(self) -> float:
         return self._setting("YTJ_TIMEOUT", 30)
+
+    @property
+    def CACHE_COMPANY_IN_SESSION(self) -> bool:
+        return self._setting("CACHE_COMPANY_IN_SESSION", True)
 
     # Redirects
 
