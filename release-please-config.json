@@ -2,7 +2,6 @@
   "sequential-calls": true,
   "packages": {
     ".": {
-      "release-as": "1.0.0",
       "release-type": "python",
       "package-name": "django-helsinki-suomifi-on-behalf",
       "exclude-paths": ["tests"],
