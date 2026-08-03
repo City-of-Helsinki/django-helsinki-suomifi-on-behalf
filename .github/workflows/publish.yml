@@ -1,18 +1,34 @@
 name: Create release & publish to PyPI
-run-name: ${{ inputs.ref && format('Publish {0}', inputs.ref) || null }}
+# For manual runs:
+# - If ref is set (for example, "refs/tags/v1.2.3"), use "Publish refs/tags/v1.2.3".
+# - If skipping build (for example, ref is "main"), use "Release-please only (main)"
+# Otherwise, use the default name (latest commit).
+run-name: >-
+  ${{
+    inputs.ref &&
+      (inputs.skip-build
+        && format('Release-please only ({0})', inputs.ref)
+        || format('Publish {0}', inputs.ref))
+    || null
+  }}
 
 on:
   push:
     branches:
       - main
+  # Run daily to keep the release PR date current
   schedule:
     - cron: '1 0 * * *'
   workflow_dispatch:
     inputs:
       ref:
-        description: "The branch, tag or SHA to publish."
+        description: "The branch, tag or SHA to publish. E.g. main, refs/tags/v1.0.0, aeb2839."
         required: true
         type: string
+      skip-build:
+        description: "Skip artifact build and publish, i.e. run release-please only."
+        default: false
+        type: boolean
 
 jobs:
   release-please:
@@ -29,7 +45,8 @@ jobs:
     uses: City-of-Helsinki/.github/.github/workflows/build-python-dists.yml@main
     with:
         ref: ${{ inputs.ref }}
-    if: ${{ needs.release-please.outputs.release_created || inputs.ref }}
+    # If the build is not skipped, run the build job when a release was created or a ref was specified.
+    if: ${{ !inputs.skip-build && (needs.release-please.outputs.release_created || inputs.ref) }}
 
   publish-to-pypi:
     name: Publish to PyPI
@@ -39,7 +56,7 @@ jobs:
     if: ${{ needs.build.outputs.artifact_name }}
     environment:
       name: pypi
-      url: https://pypi.org/p/django-helsinki-suomifi-on-behalf
+      url: https://pypi.org/p/${{ github.event.repository.name }}
     permissions:
       id-token: write
     steps:
