@@ -49,8 +49,8 @@ from your own app.
    ]
    SUOMIFI_ON_BEHALF_OIDC_USERINFO_ENDPOINT = "https://tunnistus.example.test/openid/userinfo"
 
-   # Where the user lands after success (standard Django setting) and failure.
-   LOGIN_REDIRECT_URL = "https://frontend.example.test/success"
+   # Where the user lands after success and after failure.
+   SUOMIFI_ON_BEHALF_LOGIN_SUCCESS_URL = "https://frontend.example.test/success"
    SUOMIFI_ON_BEHALF_LOGIN_ERROR_URL = "https://frontend.example.test/failure"
    ```
 
@@ -111,8 +111,8 @@ The most commonly used names are re-exported from the package root, e.g.
 ### Settings
 
 All of this library's own settings are prefixed `SUOMIFI_ON_BEHALF_`, have defaults, and
-are read through `suomifi_on_behalf.app_settings`. Standard Django settings
-(`LOGIN_REDIRECT_URL`, `LANGUAGE_COOKIE_NAME`) are used directly.
+are read through `suomifi_on_behalf.app_settings`. The standard Django setting
+`LANGUAGE_COOKIE_NAME` is used directly.
 
 | Setting | Required by | Default | Purpose |
 | --- | --- | --- | --- |
@@ -121,7 +121,7 @@ are read through `suomifi_on_behalf.app_settings`. Standard Django settings
 | `SUOMIFI_ON_BEHALF_EAUTHORIZATIONS_CLIENT_SECRET` | core flow | `""` | HMAC-SHA256 key that signs the checksum header on every Valtuudet API call. |
 | `SUOMIFI_ON_BEHALF_EAUTHORIZATIONS_API_OAUTH_SECRET` | core flow | `""` | HTTP Basic password for the OAuth token exchange (`/oauth/token`). |
 | `SUOMIFI_ON_BEHALF_SSN_RESOLVERS` | core flow | `None` | Ordered list of dotted paths to SSN resolvers, tried until one succeeds. |
-| `LOGIN_REDIRECT_URL` (Django) | core flow | Django default | Where to send the user after a successful login. |
+| `SUOMIFI_ON_BEHALF_LOGIN_SUCCESS_URL` | core flow | `""` | Where to send the user after a successful login. Required: the init view raises `ImproperlyConfigured` when it is unset. |
 | `SUOMIFI_ON_BEHALF_LOGIN_ERROR_URL` | core flow | `""` | Where to send the user when authorization fails. |
 | `SUOMIFI_ON_BEHALF_REDIRECT_ALLOWED_HOSTS` | dynamic next-url | `[]` | Extra hostnames allowed when the app stores an optional per-login destination in `request.session["eauth_next_url"]` (the request's own host is always allowed). See [Redirects](docs/eauth-flow.md#3-redirects). |
 | `SUOMIFI_ON_BEHALF_REDIRECT_REQUIRE_HTTPS` | dynamic next-url | `None` (falls back to `request.is_secure()`) | Whether that `eauth_next_url` destination must be HTTPS. See [Redirects](docs/eauth-flow.md#3-redirects). |
@@ -147,9 +147,9 @@ and the overall Web API flow in
 
 **Language segment in redirects.** When a `LANGUAGE_COOKIE_NAME` cookie is present, the
 success and failure redirects get the language appended as a path segment: with
-`LOGIN_REDIRECT_URL = "https://frontend.example.test/success"` and a `fi` cookie the user
-is sent to `https://frontend.example.test/success/fi/`. With no language cookie the URL
-is used unchanged. Build your frontend routes to expect this.
+`SUOMIFI_ON_BEHALF_LOGIN_SUCCESS_URL = "https://frontend.example.test/success"` and a
+`fi` cookie the user is sent to `https://frontend.example.test/success/fi/`. With no
+language cookie the URL is used unchanged. Build your frontend routes to expect this.
 
 ### SSN (hetu) resolvers
 

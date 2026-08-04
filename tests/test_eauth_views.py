@@ -3,6 +3,7 @@ from datetime import datetime
 from unittest import mock
 
 import pytest
+from django.core.exceptions import ImproperlyConfigured
 from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -105,7 +106,7 @@ def test_eauth_authentication_init_view(requests_mock, user_client, user):
 @override_settings(
     SUOMIFI_ON_BEHALF_EAUTHORIZATIONS_CLIENT_ID="ed4b7ae7",
     SUOMIFI_ON_BEHALF_EAUTHORIZATIONS_BASE_URL="http://example.test",
-    LOGIN_REDIRECT_URL="http://example.test/success",
+    SUOMIFI_ON_BEHALF_LOGIN_SUCCESS_URL="http://example.test/success",
     SUOMIFI_ON_BEHALF_REDIRECT_ALLOWED_HOSTS=["example.test"],
     SUOMIFI_ON_BEHALF_REDIRECT_REQUIRE_HTTPS=False,
 )
@@ -165,6 +166,15 @@ def test_init_view_resolver_failure_redirects_to_error_url(user_client, user):
 
     assert response.status_code == 302
     assert response.url == app_settings.LOGIN_ERROR_URL
+
+
+@pytest.mark.django_db
+@override_settings(SUOMIFI_ON_BEHALF_LOGIN_SUCCESS_URL="")
+def test_init_view_requires_login_success_url(user_client, user):
+    # The init view fails fast rather than letting the misconfiguration surface at the
+    # end of the callback.
+    with pytest.raises(ImproperlyConfigured):
+        user_client.get(reverse("eauth_authentication_init"))
 
 
 @pytest.mark.django_db

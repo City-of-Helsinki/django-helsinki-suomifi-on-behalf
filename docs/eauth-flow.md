@@ -34,7 +34,7 @@ sequenceDiagram
     App->>Eauth: exchange code for token
     App->>Eauth: request_organization_roles()
     Eauth-->>App: mandate stored in session["organization_roles"]
-    App-->>User: redirect to LOGIN_REDIRECT_URL
+    App-->>User: redirect to SUOMIFI_ON_BEHALF_LOGIN_SUCCESS_URL
 ```
 
 ## Prerequisite: an OIDC-authenticated session
@@ -99,8 +99,10 @@ the cheapest / most authoritative source first and any fallback last.
 ```python
 # settings.py
 
-# Where to send the user after a successful login (standard Django setting).
-LOGIN_REDIRECT_URL = "https://portal.example.test/dashboard"
+# Where to send the user after a successful login. Required: the init view raises
+# ImproperlyConfigured when it is unset, so a misconfiguration surfaces before the
+# user is sent to Suomi.fi.
+SUOMIFI_ON_BEHALF_LOGIN_SUCCESS_URL = "https://portal.example.test/dashboard"
 
 # Where to send the user when authorization fails.
 SUOMIFI_ON_BEHALF_LOGIN_ERROR_URL = "https://portal.example.test/login-error"
@@ -120,7 +122,8 @@ return redirect("eauth_authentication_init")
 
 On success the flow pops `eauth_next_url` and uses it **only if** it passes
 `is_safe_redirect_url` (checked against `REDIRECT_ALLOWED_HOSTS` /
-`REDIRECT_REQUIRE_HTTPS`); otherwise it falls back to `LOGIN_REDIRECT_URL`.
+`REDIRECT_REQUIRE_HTTPS`); otherwise it falls back to
+`SUOMIFI_ON_BEHALF_LOGIN_SUCCESS_URL`.
 
 The redirect settings and the language-segment behavior (a `LANGUAGE_COOKIE_NAME` cookie
 is appended to the final URL as a path segment) are documented in the
