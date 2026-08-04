@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     CACHE_COMPANY_IN_SESSION: bool
 
     # Redirects
+    LOGIN_SUCCESS_URL: str
     LOGIN_ERROR_URL: str
     REDIRECT_ALLOWED_HOSTS: list
     REDIRECT_REQUIRE_HTTPS: bool | None
@@ -41,9 +42,9 @@ class SuomiFiOnBehalfSettings:
     Namespaced access to this library's Django settings.
 
     Every setting is read from `django.conf.settings` under the `SUOMIFI_ON_BEHALF_`
-    prefix and has a default, so access is lazy and overridable in tests. Standard
-    Django settings the library also relies on (`LOGIN_REDIRECT_URL`,
-    `LANGUAGE_COOKIE_NAME`) are read directly and are not exposed here.
+    prefix and has a default, so access is lazy and overridable in tests. The standard
+    Django setting `LANGUAGE_COOKIE_NAME`, which the library also relies on, is read
+    directly.
     """
 
     prefix = "SUOMIFI_ON_BEHALF_"
@@ -94,6 +95,10 @@ class SuomiFiOnBehalfSettings:
         return self._setting("CACHE_COMPANY_IN_SESSION", True)
 
     # Redirects
+
+    @property
+    def LOGIN_SUCCESS_URL(self) -> str:
+        return self._setting("LOGIN_SUCCESS_URL", "")
 
     @property
     def LOGIN_ERROR_URL(self) -> str:

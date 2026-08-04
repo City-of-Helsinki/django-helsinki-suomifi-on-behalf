@@ -18,6 +18,7 @@ from suomifi_on_behalf.client import get_checksum_header
 from suomifi_on_behalf.sessions import (
     get_eauth_login_success_url,
     store_token_info_in_eauth_session,
+    validate_login_success_url,
 )
 from suomifi_on_behalf.ssn import SsnResolutionError, get_ssn_resolver
 
@@ -72,7 +73,12 @@ class EauthAuthenticationRequestView(View):
         NOTE: We should avoid raising exceptions from the method, because it results in
         user's auth flow ending on Django's 500 error page. We should instead call
         `self.login_failure()` to redirect the user to the login error page in the UI.
+        A missing success URL is the one exception: that is a deployment error rather
+        than an auth failure, so it is raised instead of hidden behind the error page.
         """
+        # Checked here because it is otherwise only read at the end of the callback.
+        validate_login_success_url()
+
         try:
             user_ssn = get_ssn_resolver()(request)
         except SsnResolutionError as e:

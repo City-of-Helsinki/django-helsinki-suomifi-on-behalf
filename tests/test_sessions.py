@@ -1,4 +1,5 @@
 import pytest
+from django.core.exceptions import ImproperlyConfigured
 from django.test import RequestFactory, override_settings
 
 from suomifi_on_behalf.sessions import (
@@ -36,10 +37,27 @@ def test_is_safe_redirect_url_require_https_falls_back_to_request():
 
 
 @pytest.mark.django_db
-@override_settings(LOGIN_REDIRECT_URL="http://example.test/ok")
-def test_login_success_url_falls_back_to_login_redirect_url(session_request):
-    # No eauth_next_url in the session -> falls back to LOGIN_REDIRECT_URL.
-    assert get_eauth_login_success_url(session_request) == "http://example.test/ok"
+@override_settings(SUOMIFI_ON_BEHALF_LOGIN_SUCCESS_URL="http://example.test/namespaced")
+def test_login_success_url_uses_namespaced_setting(session_request):
+    # No eauth_next_url in the session -> the configured success URL is used.
+    assert get_eauth_login_success_url(session_request) == (
+        "http://example.test/namespaced"
+    )
+
+
+@pytest.mark.django_db
+@override_settings(SUOMIFI_ON_BEHALF_LOGIN_SUCCESS_URL="")
+def test_login_success_url_raises_when_setting_unset(session_request):
+    with pytest.raises(ImproperlyConfigured):
+        get_eauth_login_success_url(session_request)
+
+
+@pytest.mark.django_db
+@override_settings(SUOMIFI_ON_BEHALF_LOGIN_SUCCESS_URL="http://example.test/namespaced")
+def test_login_success_url_prefers_safe_session_url(session_request):
+    session_request.session["eauth_next_url"] = "http://testserver/next"
+
+    assert get_eauth_login_success_url(session_request) == "http://testserver/next"
 
 
 @pytest.mark.django_db
