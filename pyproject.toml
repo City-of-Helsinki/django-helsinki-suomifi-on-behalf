@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "django-helsinki-suomifi-on-behalf"
-version = "1.0.0"
+version = "2.0.0"
 authors = [{ name = "City of Helsinki", email = "dev@hel.fi" }]
 description = "Suomi.fi on-behalf integration helpers for City of Helsinki Django apps"
 readme = "README.md"
