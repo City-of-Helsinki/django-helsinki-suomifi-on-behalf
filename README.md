@@ -110,46 +110,88 @@ The most commonly used names are re-exported from the package root, e.g.
 
 ### Settings
 
-All of this library's own settings are prefixed `SUOMIFI_ON_BEHALF_`, have defaults, and
-are read through `suomifi_on_behalf.app_settings`. The standard Django setting
-`LANGUAGE_COOKIE_NAME` is used directly.
+All of this library's own settings are prefixed `SUOMIFI_ON_BEHALF_` and are read through
+`suomifi_on_behalf.app_settings`. The standard Django setting `LANGUAGE_COOKIE_NAME` is
+used directly.
 
-| Setting | Required by | Default | Purpose |
-| --- | --- | --- | --- |
-| `SUOMIFI_ON_BEHALF_EAUTHORIZATIONS_BASE_URL` | core flow | `""` | Valtuudet API base URL. Use the Suomi.fi / DVV test base in non-production; the correct value comes from onboarding. |
-| `SUOMIFI_ON_BEHALF_EAUTHORIZATIONS_CLIENT_ID` | core flow | `""` | Client id issued at onboarding. |
-| `SUOMIFI_ON_BEHALF_EAUTHORIZATIONS_CLIENT_SECRET` | core flow | `""` | HMAC-SHA256 key that signs the checksum header on every Valtuudet API call. |
-| `SUOMIFI_ON_BEHALF_EAUTHORIZATIONS_API_OAUTH_SECRET` | core flow | `""` | HTTP Basic password for the OAuth token exchange (`/oauth/token`). |
-| `SUOMIFI_ON_BEHALF_SSN_RESOLVERS` | core flow | `None` | Ordered list of dotted paths to SSN resolvers, tried until one succeeds. |
-| `SUOMIFI_ON_BEHALF_LOGIN_SUCCESS_URL` | core flow | `""` | Where to send the user after a successful login. Required: the init view raises `ImproperlyConfigured` when it is unset. |
-| `SUOMIFI_ON_BEHALF_LOGIN_ERROR_URL` | core flow | `""` | Where to send the user when authorization fails. |
-| `SUOMIFI_ON_BEHALF_REDIRECT_ALLOWED_HOSTS` | dynamic next-url | `[]` | Extra hostnames allowed when the app stores an optional per-login destination in `request.session["eauth_next_url"]` (the request's own host is always allowed). See [Redirects](docs/eauth-flow.md#3-redirects). |
-| `SUOMIFI_ON_BEHALF_REDIRECT_REQUIRE_HTTPS` | dynamic next-url | `None` (falls back to `request.is_secure()`) | Whether that `eauth_next_url` destination must be HTTPS. See [Redirects](docs/eauth-flow.md#3-redirects). |
-| `SUOMIFI_ON_BEHALF_OIDC_USERINFO_ENDPOINT` | `OidcUserinfoSsnResolver` | `""` | OIDC userinfo endpoint read for the hetu claim. |
-| `SUOMIFI_ON_BEHALF_OIDC_VERIFY_SSL` | `OidcUserinfoSsnResolver` | `True` | Verify TLS on the userinfo request. |
-| `SUOMIFI_ON_BEHALF_OIDC_TIMEOUT` | `OidcUserinfoSsnResolver` | `None` | Userinfo request timeout in seconds. |
-| `SUOMIFI_ON_BEHALF_OIDC_PROXY` | `OidcUserinfoSsnResolver` | `None` | Proxy configuration for the userinfo request. |
-| `SUOMIFI_ON_BEHALF_HELSINKI_PROFILE_API_URL` | `HelsinkiProfileSsnResolver` | `""` | Helsinki Profile GraphQL URL. |
-| `SUOMIFI_ON_BEHALF_HELSINKI_PROFILE_AUDIENCE` | `HelsinkiProfileSsnResolver` | `""` | API-token audience. |
-| `SUOMIFI_ON_BEHALF_HELSINKI_PROFILE_SCOPE` | `HelsinkiProfileSsnResolver` | `""` | API-token scope. |
-| `SUOMIFI_ON_BEHALF_TUNNISTUS_API_TOKENS_ENDPOINT` | `HelsinkiProfileSsnResolver` | `""` | Tunnistus/Keycloak API-tokens endpoint. |
-| `SUOMIFI_ON_BEHALF_COMPANY_RESOLVERS` | company data | `None` | Ordered list of dotted paths to company resolvers, tried until one succeeds. |
-| `SUOMIFI_ON_BEHALF_YTJ_BASE_URL` | `YtjCompanyResolver` | `""` | YTJ (avoindata PRH v3) base URL. |
-| `SUOMIFI_ON_BEHALF_YTJ_TIMEOUT` | `YtjCompanyResolver` | `30` | YTJ request timeout in seconds. |
-| `SUOMIFI_ON_BEHALF_CACHE_COMPANY_IN_SESSION` | company data | `True` | Whether `get_company` caches the resolved company in `request.session["company"]`. Set `False` when your app is the source of truth for company data and re-resolves each request; the session is then never read or written. |
+**Default column:** `required` means the eAuthorizations flow itself fails
+(`ImproperlyConfigured` at startup, or a runtime failure) if it is left unset.
+`required if using X` means it only matters when resolver `X` is the one you configured.
+`required to use Y` means it is only read by the opt-in helper `Y`, never by the flow
+itself. Any other value shown is the actual default.
 
-`CLIENT_ID`, `CLIENT_SECRET` and `API_OAUTH_SECRET` are issued during Suomi.fi Valtuudet
-onboarding. The checksum and token flows are described in the Suomi.fi documentation
-(Finnish only): the checksum calculation in
+#### eAuthorizations (Valtuudet) credentials
+
+Issued during Suomi.fi Valtuudet onboarding. The checksum and token flows are described
+in the Suomi.fi documentation (Finnish only): the checksum calculation in
 [palveluhallinta artikkeli 5a781dc7](https://palveluhallinta.suomi.fi/fi/tuki/artikkelit/5a781dc75cb4f10dde9735e4)
 and the overall Web API flow in
 [palveluhallinta artikkeli 592d7745](https://palveluhallinta.suomi.fi/fi/tuki/artikkelit/592d774503f6d100018db5dd).
 
-**Language segment in redirects.** When a `LANGUAGE_COOKIE_NAME` cookie is present, the
-success and failure redirects get the language appended as a path segment: with
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `SUOMIFI_ON_BEHALF_EAUTHORIZATIONS_BASE_URL` | required | Valtuudet API base URL. Use the Suomi.fi / DVV test base in non-production. |
+| `SUOMIFI_ON_BEHALF_EAUTHORIZATIONS_CLIENT_ID` | required | Client id. |
+| `SUOMIFI_ON_BEHALF_EAUTHORIZATIONS_CLIENT_SECRET` | required | HMAC-SHA256 key that signs the checksum header on every Valtuudet API call. |
+| `SUOMIFI_ON_BEHALF_EAUTHORIZATIONS_API_OAUTH_SECRET` | required | HTTP Basic password for the OAuth token exchange (`/oauth/token`). |
+
+#### Redirects
+
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `SUOMIFI_ON_BEHALF_LOGIN_SUCCESS_URL` | required | Where to send the user after a successful login; the init view raises `ImproperlyConfigured` if unset. |
+| `SUOMIFI_ON_BEHALF_LOGIN_ERROR_URL` | required | Where to send the user when authorization fails. |
+| `SUOMIFI_ON_BEHALF_REDIRECT_ALLOWED_HOSTS` | `[]` | Extra hostnames allowed for the optional per-login destination stored in `request.session["eauth_next_url"]` (the request's own host is always allowed). |
+| `SUOMIFI_ON_BEHALF_REDIRECT_REQUIRE_HTTPS` | falls back to `request.is_secure()` | Whether that `eauth_next_url` destination must be HTTPS. |
+
+See [Redirects](docs/eauth-flow.md#3-redirects) for how `eauth_next_url` is used.
+
+**Language segment.** When a `LANGUAGE_COOKIE_NAME` cookie is present, the success and
+failure redirects get the language appended as a path segment: with
 `SUOMIFI_ON_BEHALF_LOGIN_SUCCESS_URL = "https://frontend.example.test/success"` and a
 `fi` cookie the user is sent to `https://frontend.example.test/success/fi/`. With no
 language cookie the URL is used unchanged. Build your frontend routes to expect this.
+
+#### SSN (hetu) resolver settings
+
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `SUOMIFI_ON_BEHALF_SSN_RESOLVERS` | required | Ordered list of dotted paths to SSN resolvers, tried until one succeeds. |
+
+**`OidcUserinfoSsnResolver`**
+
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `SUOMIFI_ON_BEHALF_OIDC_USERINFO_ENDPOINT` | required if using `OidcUserinfoSsnResolver` | OIDC userinfo endpoint read for the hetu claim. |
+| `SUOMIFI_ON_BEHALF_OIDC_VERIFY_SSL` | `True` | Verify TLS on the userinfo request. |
+| `SUOMIFI_ON_BEHALF_OIDC_TIMEOUT` | `None` | Userinfo request timeout in seconds. |
+| `SUOMIFI_ON_BEHALF_OIDC_PROXY` | `None` | Proxy configuration for the userinfo request. |
+
+**`HelsinkiProfileSsnResolver`**
+
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `SUOMIFI_ON_BEHALF_HELSINKI_PROFILE_API_URL` | required if using `HelsinkiProfileSsnResolver` | Helsinki Profile GraphQL URL. |
+| `SUOMIFI_ON_BEHALF_HELSINKI_PROFILE_AUDIENCE` | required if using `HelsinkiProfileSsnResolver` | API-token audience. |
+| `SUOMIFI_ON_BEHALF_HELSINKI_PROFILE_SCOPE` | required if using `HelsinkiProfileSsnResolver` | API-token scope. |
+| `SUOMIFI_ON_BEHALF_TUNNISTUS_API_TOKENS_ENDPOINT` | required if using `HelsinkiProfileSsnResolver` | Tunnistus/Keycloak API-tokens endpoint. |
+
+#### Company data resolver settings
+
+None of these are read by the eAuthorizations flow itself: they only matter if your
+app calls the opt-in `get_company()` helper.
+
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `SUOMIFI_ON_BEHALF_COMPANY_RESOLVERS` | required to use `get_company()` | Ordered list of dotted paths to company resolvers, tried until one succeeds. |
+| `SUOMIFI_ON_BEHALF_CACHE_COMPANY_IN_SESSION` | `True` | Whether `get_company` caches the resolved company in `request.session["company"]`. Set `False` when your app is the source of truth for company data and re-resolves each request; the session is then never read or written. |
+
+**`YtjCompanyResolver`**
+
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `SUOMIFI_ON_BEHALF_YTJ_BASE_URL` | required if using `YtjCompanyResolver` | YTJ (avoindata PRH v3) base URL. |
+| `SUOMIFI_ON_BEHALF_YTJ_TIMEOUT` | `30` | YTJ request timeout in seconds. |
 
 ### SSN (hetu) resolvers
 
