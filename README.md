@@ -14,7 +14,7 @@ pip install django-helsinki-suomifi-on-behalf
 ```
 
 The package depends on `django` and `requests`, and supports Python 3.11 and later
-with Django 5.2 and 6.0.
+with Django 5.2, 6.0, and 6.1.
 
 There is no app config to register: `suomifi_on_behalf` does not need to be added to
 `INSTALLED_APPS`. Wire its URLs (see [Quickstart](#quickstart)) and connect any signals
