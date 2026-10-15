@@ -15,7 +15,8 @@ jobs:
   common:
     uses: City-of-Helsinki/.github/.github/workflows/ci-python-library.yml@main
     with:
-      python-matrix: "['3.10', '3.11', '3.12', '3.13', '3.14']"
+      python-version: "3.11"
+      python-matrix: "['3.11', '3.12', '3.13', '3.14']"
       commitlint-config-file: .commitlintrc.mjs
     secrets:
       sonar-token: ${{ secrets.SONAR_TOKEN }}
